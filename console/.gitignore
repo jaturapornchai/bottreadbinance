@@ -1,0 +1,9 @@
+# secrets: only the fake .env.example is tracked
+.env*
+!.env.example
+node_modules
+.next
+out
+*.tsbuildinfo
+next-env.d.ts
+test-screenshots

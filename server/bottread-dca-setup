@@ -1,0 +1,38 @@
+#!/bin/sh
+# BotTread Auto Short settings (ลุงจืด 2026-10-11 "ให้เล่น future ฝั่ง short 1x"). The server is only a proxy (ลุงจืด 2026-10-26):
+# code on the team machine picks every open and exits by rule; SHORT_LOT_USDT caps one isolated position's size (the team asks 1x: position 100); no stop/TP on Binance.
+# Type `bottread-dca-setup` in the DigitalOcean Droplet Console (root). The old spot DCA settings are dropped on save.
+# The Binance key is entered here only: /etc/bottread/dca.env (root, 600), read by bottread-dca.service, never sent to the PC.
+set -eu
+[ "$(id -u)" -eq 0 ] || { echo "ต้องรันด้วย root"; exit 1; }
+F=/etc/bottread/dca.env
+umask 077
+mkdir -p /etc/bottread
+touch "$F"
+get() { sed -n "s/^$1=//p" "$F" | tail -n 1; }
+ok() { printf '%s' "$1" | grep -Eq "$2"; }
+trap 'stty echo 2>/dev/null || true' EXIT INT TERM
+
+KEY=$(get BINANCE_API_KEY); SECRET=$(get BINANCE_API_SECRET); LOT=$(get SHORT_LOT_USDT)
+echo "ตั้งค่า Auto Short (Futures 1x isolated) — กด Enter เฉย ๆ = ใช้ค่าเดิม"
+printf 'Binance API Key%s: ' "${KEY:+ [มีอยู่แล้ว]}"; read -r v; [ -z "$v" ] || KEY=$v
+printf 'Binance Secret Key%s (วางแล้วจะไม่แสดง): ' "${SECRET:+ [มีอยู่แล้ว]}"; stty -echo; read -r v; stty echo; echo
+[ -z "$v" ] || SECRET=$v
+printf 'เพดานขนาด position ไม้ละกี่ USDT (server ไม่เปิดไม้ที่ใหญ่กว่านี้; เครื่องทีมขอ 1x position 100 จึงต้อง ≥ 100 เช่น 100) [%s]: ' "${LOT:-ยังไม่ตั้ง = ปิด}"; read -r v; [ -z "$v" ] || LOT=$v
+echo "short = ได้เมื่อราคาลง เสียเมื่อราคาขึ้น — ไม่มี stop-loss/take-profit บน Binance: โค้ดตรวจกติกาออกทุกชั่วโมง ไม่มีใครปิด = ถือจนถูก liquidate (1x: short ราว +100%)"
+printf 'พิมพ์ YES = ซื้อขายจริง (เปิด/ปิด short ด้วยเงินจริงใน USDⓈ-M Futures) / Enter = ทดสอบ (Binance ตรวจคำสั่งแต่ไม่เปิดจริง): '; read -r v
+LIVE=0; [ "$v" = YES ] && LIVE=1
+
+[ -z "$KEY" ] || ok "$KEY" '^[A-Za-z0-9]{16,128}$' || { echo "API Key ไม่ถูกรูปแบบ — ไม่ได้บันทึก"; exit 1; }
+[ -z "$SECRET" ] || ok "$SECRET" '^[A-Za-z0-9]{16,128}$' || { echo "Secret Key ไม่ถูกรูปแบบ — ไม่ได้บันทึก"; exit 1; }
+[ -z "$LOT" ] || ok "$LOT" '^[0-9]{1,9}(\.[0-9]{1,2})?$' || { echo "ไม้ละกี่ USDT ต้องเป็นตัวเลข เช่น 50 หรือ 50.50 — ไม่ได้บันทึก"; exit 1; }
+
+T=$(mktemp /etc/bottread/.dca.env.XXXXXX)
+printf 'BINANCE_API_KEY=%s\nBINANCE_API_SECRET=%s\nSHORT_LOT_USDT=%s\nSHORT_LIVE=%s\n' "$KEY" "$SECRET" "$LOT" "$LIVE" > "$T"
+mv "$T" "$F"
+systemctl restart bottread-dca
+sleep 2
+echo "บันทึกแล้ว — ตรวจกับ Binance:"
+# the check goes through the service, which only answers callers holding DCA_PLAN_TOKEN (set at install)
+if [ -r /etc/bottread/plan.env ]; then set -a; . /etc/bottread/plan.env; set +a; fi
+python3 /opt/bottread/binance.py

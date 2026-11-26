@@ -1,0 +1,28 @@
+{
+  "name": "bottread-console",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BotTread monitor console (replaces the Windows WPF app)",
+  "scripts": {
+    "dev": "next dev -p 3300",
+    "build": "next build",
+    "start": "node -r ./socket-ip.cjs .next/standalone/server.js",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "lightweight-charts": "^5.3.0",
+    "next": "16.4.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "typescript": "6.0.3"
+  }
+}

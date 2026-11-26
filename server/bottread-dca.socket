@@ -1,0 +1,11 @@
+# BotTread Auto Short: systemd holds 127.0.0.1:8787 and hands it to bottread-dca.service, also while the service
+# restarts, so no other local user on this server can bind the port and collect X-BotTread-Token.
+# Install: /etc/systemd/system/bottread-dca.socket next to the .service (README หัวข้อ Auto Short)
+[Unit]
+Description=BotTread Auto Short socket (127.0.0.1:8787)
+
+[Socket]
+ListenStream=127.0.0.1:8787
+
+[Install]
+WantedBy=sockets.target

@@ -1,0 +1,34 @@
+# Secrets & local overrides (NEVER commit real env/keys/SSH files)
+.env
+.env.*
+!.env.example
+console.env
+console/.env*
+!console/.env.example
+*.pem
+*.key
+credentials*.json
+
+# Live state, logs, caches & large research data
+reports/
+cache/
+research/
+tmp/
+*.bak*
+
+# Local AI agent rules & internal handoff notes
+HANDOFF.md
+AGENTS.md
+CLAUDE.md
+.claude/
+
+# Python / Node / Build caches
+__pycache__/
+.venv/
+.ruff_cache/
+console/node_modules/
+console/.next/
+console/out/
+console/*.tsbuildinfo
+console/next-env.d.ts
+console/test-screenshots/

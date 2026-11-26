@@ -1,0 +1,27 @@
+# BotTread Auto Short on the proxy server: signs and sends Binance futures orders; the key never leaves this machine.
+# Install: /etc/systemd/system/bottread-dca.service (README หัวข้อ Auto Short)
+# Halt: `systemctl disable --now bottread-dca.socket bottread-dca` — stopping only the service is not enough, the socket restarts it on the next request.
+[Unit]
+Description=BotTread Auto Short (Binance futures orders, 127.0.0.1:8787)
+After=network-online.target bottread-dca.socket
+Wants=network-online.target
+# the port comes from bottread-dca.socket (held by systemd across restarts), never bound by the service itself
+Requires=bottread-dca.socket
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/bottread/binance.py serve
+# written by bottread-dca-setup (root, 600); "-" = start anyway, check() then says what is missing
+EnvironmentFile=-/etc/bottread/dca.env
+# DCA_PLAN_TOKEN: only callers with it (the PC, root's checks) may use the service; written at install (root, 600)
+EnvironmentFile=-/etc/bottread/plan.env
+Environment=SHORT_LEDGER=/var/lib/bottread/short-orders.jsonl PYTHONUNBUFFERED=1
+DynamicUser=yes
+StateDirectory=bottread
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

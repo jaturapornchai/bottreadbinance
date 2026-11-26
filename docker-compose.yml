@@ -1,0 +1,53 @@
+# BotTread on the Linux server (<LAN_SERVER_IP>, next to ClickHouse). Orders still go out from the DigitalOcean server
+# (binance.py serve), reached over the SSH tunnel exactly like the PC did.
+services:
+  # Message bus for the BotTrade team: Redpanda = Kafka API, single container, no JVM/ZooKeeper.
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v26.2.4
+    container_name: bottread-redpanda
+    restart: unless-stopped
+    command:
+      - redpanda start
+      - --mode dev-container
+      - --smp 1
+      - --memory 512M
+      - --overprovisioned
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://127.0.0.1:19092
+    ports:
+      - "127.0.0.1:19092:19092"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+
+  # runner.py: hourly round (team.py once), portfolio every minute, the console's buttons
+  team:
+    build: .
+    container_name: bottread-team
+    restart: unless-stopped
+    network_mode: host          # Redpanda at 127.0.0.1:19092, ClickHouse at the LAN IP, as in .env
+    env_file: .env
+    environment:
+      DCA_PROXY_KEY: /home/bot/.ssh/bottread_proxy_ed25519
+      TZ: Asia/Bangkok   # team.log timestamps stay Thai time, like the PC log it continues (the console parses them as +07:00)
+    volumes:
+      - ./:/app
+      - ${BOTTREAD_SSH_DIR:-~/.bottread/ssh}:/home/bot/.ssh   # tunnel key + known_hosts of the DigitalOcean server
+    depends_on: [redpanda]
+
+  # Next.js monitor console, LAN only, password login (console/README.md)
+  console:
+    build: ./console
+    container_name: bottread-console
+    restart: unless-stopped
+    network_mode: host
+    env_file: console.env       # CONSOLE_PASSWORD, CONSOLE_SECRET (server only, never in git)
+    environment:
+      PORT: "3300"
+      BOTTREAD_ROOT: /data
+    volumes:
+      - ./cache:/data/cache     # reads state, writes cache/requests/ only
+      - ./reports:/data/reports:ro
+    depends_on: [team]
+
+volumes:
+  redpanda-data:
